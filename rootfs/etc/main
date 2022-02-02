@@ -1,0 +1,47 @@
+#!/bin/sh
+export HOME=/mnt
+export SDL_NOMOUSE=1
+
+echo -e "\e[?1c" #replace 1 with 3 to see text
+#/mnt/kernel/setcolors /mnt/kernel/colors
+
+clear
+echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n              \e[1;33m[ STARTING ]\e[0m"
+
+modprobe r61520fb.ko
+
+#Check if fat32 is flagged as "dirty", and if so unmount, repair, remount
+if dmesg | grep "mmcblk0p4" > /dev/null;  then
+  clear
+  echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n             \e[1;33m[ REPAIRING ]\e[0m"
+  umount /dev/mmcblk0p4
+  fsck.vfat -y /dev/mmcblk0p4 > /dev/null; 
+  mount /dev/mmcblk0p4 /mnt -t vfat -o rw,sync,utf8
+fi
+
+/mnt/kernel/daemon > /dev/null 2>&1
+
+function start_retroarch {
+  cd /mnt/emus/retroarch
+  if ! read -n 1 -t 1 -s; then
+    local history_path='/mnt/.retroarch/content_history.lpl'
+    if test -f "${history_path}"; then
+      local rom_path="$(head -n20 "${history_path}" | grep -Eo -m1 '/mnt/roms/[^"]+')"
+      local core_path="$(head -n20 "${history_path}" | grep -Eo -m1 '/mnt/.retroarch/cores/.+\.so')"
+      if test -f "${core_path}" -a -f "${rom_path}"; then
+        clear
+        echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n              \e[1;33m[ LOADING ]\e[0m"
+        ./retroarch --load-menu-on-error --libretro "${core_path}" "${rom_path}" > /dev/null 2>&1
+        return
+      fi
+    fi
+  fi
+  ./retroarch --menu > /dev/null 2>&1
+}
+
+start_retroarch
+
+clear
+echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n               \e[1;33m[ SAVING ]\e[0m"
+sync
+poweroff
